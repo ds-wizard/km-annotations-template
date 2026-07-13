@@ -1,0 +1,70 @@
+{%- set dc = ctx|to_context_obj -%}
+{%- import 'src/logic/table.j2' as table with context -%}
+{%- set grid = [] -%}
+{%- for row in table.rows -%}
+    {%- do grid.append([
+        row.hi,
+        row.uuid,
+        row.type,
+        row.json_key,
+        row.json_value,
+        row.note,
+    ]) -%}
+{%- endfor -%}
+{%- set data = {
+    "properties": {
+        "document": {
+            "title": "My example workbook",
+            "subject": "",
+            "author": "Albert Einstein",
+            "manager": "",
+            "company": "ACME",
+            "category": "",
+            "keywords": "test,example,foo,bar",
+            "created": "2018-01-01",
+            "comments": ""
+        },
+        "custom":  [],
+    },
+    "sheets": [
+        {
+            "name": "main",
+            "data": [
+                {
+                    "type": "row",
+                    "subtype": "string",
+                    "col": 0,
+                    "row": 0,
+                    "data": [
+                        "ID",
+                        "UUID",
+                        "Type",
+                        "JSON Key",
+                        "JSON Value",
+                        "Note",
+                    ]
+                },
+                {
+                    "type": "grid",
+                    "col": 0,
+                    "row": 1,
+                    "data": grid
+                }
+            ],
+            "tables": [
+                {
+                    "first_row": 0,
+                    "first_col": 0,
+                    "last_row": grid|length,
+                    "last_col": 5,
+                    "options": {
+                        "header_row": True,
+                        "banded_rows": True,
+                        "name": "annotations",
+                    },
+                },
+            ],
+        },
+    ]
+} -%}
+{{ data|tojson(2) }}

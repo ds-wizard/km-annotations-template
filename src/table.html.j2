@@ -1,0 +1,131 @@
+{%- set dc = ctx|to_context_obj -%}
+{%- import 'src/logic/table.j2' as table with context -%}
+{#- =========================================================================== -#}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KM Annotations Checking Table</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f5f7fa;
+    padding: 10px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    display: block;
+    overflow-x: auto;
+  }
+
+  thead {
+    background: #4a90e2;
+    color: white;
+  }
+
+  th, td {
+    padding: 12px 16px;
+    text-align: left;
+  }
+
+  th {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #eee;
+    transition: background 0.2s ease;
+  }
+
+  tbody tr:hover {
+    background: #cecece;
+  }
+
+  tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  tbody tr:nth-child(even) {
+    background: #f9fafb;
+  }
+
+  tbody tr:nth-child(even):hover {
+    background: #cecece;
+  }
+
+  td {
+    color: #333;
+  }
+  td.mv {
+    min-width: 320px;
+  }
+  span.type {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: white;
+    font-size: 0.85em;
+  }
+  span.type-chapter {
+    background: #e67e22;
+  }
+  span.type-question {
+    background: #3498db;
+  }
+  span.type-answer {
+    background: #2ecc71;
+  }
+  span.type-choice {
+    background: #9b59b6;
+  }
+  span.not-set {
+    color: #999;
+    font-style: italic;
+  }
+</style>
+  </head>
+  <body>
+    <table>
+
+<thead>
+  <tr>
+    <th>ID</td>
+    <th>UUID</td>
+    <th>Type</td>
+    <th>json.key</td>
+    <th>json.value</td>
+    <th>Note</td>
+    <th>Checks</th>
+  </tr>
+</thead>
+<tbody>
+{%- for row in table.rows -%}
+  <tr>
+    <td>{{ row.hi }}</td>
+    <td class="mv"><code>{{ row.uuid }}</code></td>
+    <td><span class="type type-{{ row.type }}">{{ row.type }}</span></td>
+    <td>{%- if row.json_key %}<code>{{ row.json_key }}</code>{%- else %}<span class="not-set">(not set)</span>{%- endif %}</td>
+    <td>{%- if row.json_value %}<code></code>{{ row.json_value }}</code>{%- else %}<span class="not-set">(not set)</span>{%- endif %}</td>
+    <td class="note">{{ row.note }}</td>
+    <td>
+      {%- for check in row.checks -%}
+        {# show tooltip #}
+        <span title="{{ check.message }}">{% if check.level == 'error' %}<strong>‼️</strong>{% elif check.level == 'warning' %}<strong>⚠️</strong>{% endif %}</span>{% if not loop.last %}, {% endif %}
+      {%- endfor -%}
+    </td>
+  </tr>
+{%- endfor -%}
+</tbody>
+
+    </table>
+  </body>
+</html>

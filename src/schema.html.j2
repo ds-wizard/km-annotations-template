@@ -1,0 +1,27 @@
+{%- from 'src/logic/schema.j2' import schema with context -%}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Schema</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/williamtroup/JsonTree.js@4.7.1/dist/jsontree.js.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/gh/williamtroup/JsonTree.js@4.7.1/dist/jsontree.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+const schema = {{ schema | tojson }};
+
+function bindingOptions() {
+
+    return {
+      data: schema,
+      openInFullScreenMode: true,
+    }
+}
+</script>
+
+  </head>
+  <body>
+    <div id="tree-1"  data-jsontree-js="bindingOptions"></div>
+  </body>
+</html>

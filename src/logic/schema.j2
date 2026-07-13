@@ -1,0 +1,116 @@
+{#- Schema for integration reply: add fields -#}
+{%- set integrationReplySchema = {
+  "type": "object",
+  "properties": {
+    "_value": { "type": "string" },
+    "_path": { "type": "string" },
+    "_raw": {},
+  },
+  "required": ["_value", "_path"],
+} -%}
+{#- Schema for Answer/Choice reply: update _value (None / T/F), add fields -#}
+{%- set answerChoiceReplySchema = {
+  "type": "object",
+  "properties": {
+    "_uuid": { "type": "string" },
+    "_label": { "type": "string" },
+    "_value": { "type": "string" },
+    "_path": { "type": "string" },
+  },
+  "required": ["_value", "_path", "_uuid", "_label"],
+} -%}
+{#- Schema for List reply: add fields -#}
+{%- set listReplySchema = {
+  "type": "object",
+  "properties": {
+    "_uuid": { "type": "string" },
+    "_path": { "type": "string" },
+  },
+  "required": ["_value", "_path", "_uuid", "_label"],
+} -%}
+{#- Schema for Value reply -#}
+{%- set valueReplySchema = {
+  "type": "object",
+  "properties": {
+    "_value": { "type": "string" },
+    "_path": { "type": "string" },
+  },
+  "required": ["_value", "_path"],
+} -%}
+{#- Schema for File reply -#}
+{%- set fileReplySchema = {
+  "type": "object",
+  "properties": {
+    "_uuid": { "type": "string" },
+    "_name": { "type": "string" },
+    "_size": { "type": "number" },
+    "_content_type": { "type": "string" },
+    "_url": { "type": "string" },
+    "_path": { "type": "string" },
+  },
+  "required": ["_uuid", "_path"],
+} -%}
+{#- Main schema for all replies -#}
+{%- set objects = { 'root': {}, } -%}
+{%- set schema = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Product",
+  "description": "A product in the catalog",
+  "type": "object",
+  "properties": objects['root'],
+} -%}
+{#- TRAVERSE -#}
+{%- macro traverseValueQuestion(key, question, path) -%}
+{%- endmacro -%}
+{%- macro traverseIntegrationQuestion(key, question, path) -%}
+{%- endmacro -%}
+{%- macro traverseOptionsQuestion(key, question, path) -%}
+{%- endmacro -%}
+{%- macro traverseMultiChoiceQuestion(key, question, path) -%}
+{%- endmacro -%}
+{%- macro traverseListQuestion(key, question, path) -%}
+{%- endmacro -%}
+{%- macro traverseItemSelectQuestion(key, question, path) -%}
+{%- endmacro -%}
+{%- macro traverseFileQuestion(key, question, path) -%}
+{%- endmacro -%}
+{%- macro traverseQuestion(key, question, path) -%}
+  {%- set new_path = path ~ '.' ~ question.uuid -%}
+  {%- if question is of_type('ValueQuestion') -%}
+    {%- do traverseValueQuestion(key, question, new_path) -%}
+  {%- elif question is of_type('IntegrationQuestion') -%}
+    {%- do traverseIntegrationQuestion(key, question, new_path) -%}
+  {%- elif question is of_type('OptionsQuestion') -%}
+    {%- do traverseOptionsQuestion(key, question, new_path) -%}
+  {%- elif question is of_type('MultiChoiceQuestion') -%}
+    {%- do traverseMultiChoiceQuestion(key, question, new_path) -%}
+  {%- elif question is of_type('ListQuestion') -%}
+    {%- do traverseListQuestion(key, question, new_path) -%}
+  {%- elif question is of_type('ItemSelectQuestion') -%}
+    {%- do traverseItemSelectQuestion(key, question, new_path) -%}
+  {%- elif question is of_type('FileQuestion') -%}
+    {%- do traverseFileQuestion(key, question, new_path) -%}
+  {%- endif -%}
+{%- endmacro -%}
+{%- macro traverseChapter(key, chapter) -%}
+  {%- set a_key = chapter.annotations.get('json.key') -%}
+  {%- if a_key -%}
+    {%- do objects.update({chapter.uuid: {}}) -%}
+    {%- for question in chapter.questions -%}
+      {%- do traverseQuestion(chapter.uuid, question, chapter.uuid) -%}
+    {%- endfor -%}
+    {%- do objects[key].update({
+      a_key: {
+        "type": "object",
+        "properties": objects[chapter.uuid],
+      }}) -%}
+  {%- else -%}
+    {%- for question in chapter.questions -%}
+      {%- do traverseQuestion(key, question, chapter.uuid) -%}
+    {%- endfor -%}
+  {%- endif -%}
+{%- endmacro -%}
+{%- for chapter in dc.km.chapters -%}
+  {%- do traverseChapter('root', chapter) -%}
+{%- endfor -%}
+

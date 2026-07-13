@@ -1,0 +1,136 @@
+{
+    "templateId": "km-annotations",
+    "organizationId": "dsw",
+    "version": "0.1.0",
+    "name": "KM Annotations",
+    "description": "Document template for using KM annotations for replies extraction",
+    "license": "Apache-2.0",
+    "metamodelVersion": "18.0",
+    "allowedPackages": [
+        {
+            "orgId": null,
+            "kmId": null,
+            "minVersion": null,
+            "maxVersion": null
+        }
+    ],
+    "formats": [
+        {
+            "uuid": "2fd069f8-8080-4054-a061-1dcbf70dca44",
+            "name": "KM Check Table (HTML)",
+            "icon": "fa-solid fa-table",
+            "steps": [
+                {
+                    "name": "jinja",
+                    "options": {
+                        "template": "src/table.html.j2",
+                        "content-type": "text/html",
+                        "extension": "html"
+                    }
+                }
+            ]
+        },
+        {
+            "uuid": "320c0322-126b-4688-bb87-0c7e2899bca5",
+            "name": "KM Check Table (CSV)",
+            "icon": "fa-solid fa-file-excel",
+            "steps": [
+                {
+                    "name": "jinja",
+                    "options": {
+                        "template": "src/table.csv.j2",
+                        "content-type": "text/csv",
+                        "extension": "csv"
+                    }
+                }
+            ]
+        },
+        {
+            "uuid": "320c0322-126b-4688-bb87-0c7e2899bca6",
+            "name": "KM Check Table (Excel)",
+            "icon": "fa-solid fa-file-excel",
+            "steps": [
+                {
+                    "name": "jinja",
+                    "options": {
+                        "template": "src/table.json.j2",
+                        "content-type": "application/json",
+                        "extension": "json"
+                    }
+                },
+                {
+                    "name": "excel",
+                    "options": {}
+                }
+            ]
+        },
+        {
+            "uuid": "735c6518-26c9-4396-b162-783795a95acd",
+            "name": "JSON Schema (HTML)",
+            "icon": "fa-solid fa-diagram-project",
+            "steps": [
+                {
+                    "name": "jinja",
+                    "options": {
+                        "template": "src/schema.html.j2",
+                        "content-type": "text/html",
+                        "extension": "html"
+                    }
+                }
+            ]
+        },
+        {
+            "uuid": "2bb07098-57b0-4342-bffa-4182b76bfcb2",
+            "name": "JSON Schema (JSON)",
+            "icon": "fa-solid fa-file-waveform",
+            "steps": [
+                {
+                    "name": "jinja",
+                    "options": {
+                        "template": "src/schema.json.j2",
+                        "content-type": "application/json",
+                        "extension": "json"
+                    }
+                }
+            ]
+        },
+        {
+            "uuid": "b57d0a01-183d-4084-9346-2dd1b0d60d7a",
+            "name": "Extraction (HTML)",
+            "icon": "fa-solid fa-code",
+            "steps": [
+                {
+                    "name": "jinja",
+                    "options": {
+                        "template": "src/extraction.html.j2",
+                        "content-type": "text/html",
+                        "extension": "html"
+                    }
+                }
+            ]
+        },
+        {
+            "uuid": "512844ec-31a4-4ce5-8cc1-5cff634a1ac9",
+            "name": "Extraction (JSON)",
+            "icon": "fa-solid fa-file-code",
+            "steps": [
+                {
+                    "name": "jinja",
+                    "options": {
+                        "template": "src/extraction.json.j2",
+                        "content-type": "application/json",
+                        "extension": "json"
+                    }
+                }
+            ]
+        }
+    ],
+    "_tdk": {
+        "version": "4.27.0",
+        "readmeFile": "README.md",
+        "files": [
+            "/src/**/*.j2",
+            "/LICENSE"
+        ]
+    }
+}

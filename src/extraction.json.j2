@@ -1,0 +1,3 @@
+{%- set dc = ctx|to_context_obj -%}
+{%- set data = dc|extract_replies -%}
+{{ data|tojson(indent=2) }}

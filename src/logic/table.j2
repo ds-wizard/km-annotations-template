@@ -1,0 +1,129 @@
+{%- set rows = [] -%}
+{#- =========================================================================== -#}
+{%- macro traverseChoice(choice, humanIdentifier) -%}
+  {%- set checks = [] -%}
+  {%- if choice.annotations.get('json.key') -%}
+    {%- do checks.append({
+      'level': 'error',
+      'message': 'Choice has json.key annotation, which is unusual. Please verify if this.',
+    }) -%}
+  {%- endif -%}
+  {%- if not choice.annotations.get('json.value') -%}
+    {%- do checks.append({
+      'level': 'warning',
+      'message': 'Choice does not have json.value annotation (so only label will be usable).',
+    }) -%}
+  {%- endif -%}
+  {%- do rows.append({
+    'hi': humanIdentifier,
+    'uuid': choice.uuid,
+    'type': 'choice',
+    'json_key': choice.annotations.get('json.key'),
+    'json_value': choice.annotations.get('json.value'),
+    'note': choice.label,
+    'checks': checks,
+  }) -%}
+{%- endmacro -%}
+{%- macro traverseAnswer(answer, humanIdentifier) -%}
+  {%- set checks = [] -%}
+  {%- if answer.annotations.get('json.key') -%}
+    {%- do checks.append({
+      'level': 'error',
+      'message': 'Answer has json.key annotation, which is unusual. Please verify if this.',
+    }) -%}
+  {%- endif -%}
+  {%- if not answer.annotations.get('json.value') -%}
+    {%- do checks.append({
+      'level': 'warning',
+      'message': 'Answer does not have json.value annotation (so only label will be usable).',
+    }) -%}
+  {%- endif -%}
+  {%- if answer.label|lower == 'yes' and answer.annotations.get('json.value') != 'true' -%}
+    {%- do checks.append({
+      'level': 'warning',
+      'message': 'Answer label is "Yes" but json.value is not true, which can be confusing. Please verify if this is intentional.',
+    }) -%}
+  {%- endif -%}
+  {%- if answer.label|lower == 'no' and answer.annotations.get('json.value') != 'false' -%}
+    {%- do checks.append({
+      'level': 'warning',
+      'message': 'Answer label is "No" but json.value is not false, which can be confusing. Please verify if this is intentional.',
+    }) -%}
+  {%- endif -%}
+  {%- do rows.append({
+    'hi': humanIdentifier,
+    'uuid': answer.uuid,
+    'type': 'answer',
+    'json_key': answer.annotations.get('json.key'),
+    'json_value': answer.annotations.get('json.value'),
+    'note': answer.label,
+    'checks': checks,
+  }) -%}
+  {%- for question in answer.followups -%}
+    {%- do traverseQuestion(question, humanIdentifier ~ '.' ~ loop.index) -%}
+  {%- endfor -%}
+{%- endmacro -%}
+{%- macro traverseQuestion(question, humanIdentifier) -%}
+  {%- set checks = [] -%}
+  {%- if question.annotations.get('json.value') -%}
+    {%- do checks.append({
+      'level': 'error',
+      'message': 'Question has json.value annotation, which is unusual. Please verify if this.',
+    }) -%}
+  {%- endif -%}
+  {%- if not question.annotations.get('json.key') -%}
+    {%- do checks.append({
+      'level': 'warning',
+      'message': 'Question does not have json.key annotation (so only label will be usable).',
+    }) -%}
+  {%- endif -%}
+  {%- do rows.append({
+    'hi': humanIdentifier,
+    'uuid': question.uuid,
+    'type': 'question',
+    'json_key': question.annotations.get('json.key'),
+    'json_value': question.annotations.get('json.value'),
+    'note': question.title,
+    'checks': checks,
+  }) -%}
+  {%- for answer in question.answers -%}
+    {%- do traverseAnswer(answer, humanIdentifier ~ '.' ~ (loop.index-1)|of_alphabet) -%}
+  {%- endfor -%}
+  {%- for choice in question.choices -%}
+    {%- do traverseChoice(choice, humanIdentifier ~ '.' ~ (loop.index-1)|of_alphabet) -%}
+  {%- endfor -%}
+  {%- for question in question.followups -%}
+    {%- do traverseQuestion(question, humanIdentifier ~ '._.' ~ loop.index) -%}
+  {%- endfor -%}
+{%- endmacro -%}
+{%- macro traverseChapter(chapter, humanIdentifier) -%}
+  {%- set hi = humanIdentifier|roman -%}
+  {%- set checks = [] -%}
+  {%- if chapter.annotations.get('json.value') -%}
+    {%- do checks.append({
+      'level': 'error',
+      'message': 'Chapter has json.value annotation, which is unusual. Please verify if this.',
+    }) -%}
+  {%- endif -%}
+  {%- if not chapter.annotations.get('json.key') -%}
+    {%- do checks.append({
+      'level': 'warning',
+      'message': 'Chapter does not have json.key annotation (so only label will be usable).',
+    }) -%}
+  {%- endif -%}
+  {%- do rows.append({
+    'hi': hi,
+    'uuid': chapter.uuid,
+    'type': 'chapter',
+    'json_key': chapter.annotations.get('json.key'),
+    'json_value': chapter.annotations.get('json.value'),
+    'note': chapter.title,
+    'checks': checks,
+  }) -%}
+  {%- for question in chapter.questions -%}
+    {%- do traverseQuestion(question, hi ~ '.' ~ loop.index) -%}
+  {%- endfor -%}
+{%- endmacro -%}
+{%- for chapter in dc.km.chapters -%}
+  {%- do traverseChapter(chapter, loop.index) -%}
+{%- endfor -%}
