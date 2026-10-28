@@ -1,15 +1,14 @@
 {
-    "templateId": "km-annotations",
-    "organizationId": "dsw",
-    "version": "1.0.0",
+    "id": "dsw.km-annotations",
+    "version": "2.0.0",
     "name": "KM Annotations",
     "description": "Check of the json.key / json.value annotations of a knowledge model, JSON Schema of the replies extract_replies returns, and the extracted replies of a project",
     "license": "Apache-2.0",
-    "metamodelVersion": "18.0",
+    "metamodelVersion": "19.0",
+    "language": "en",
     "allowedPackages": [
         {
-            "orgId": null,
-            "kmId": null,
+            "id": null,
             "minVersion": null,
             "maxVersion": null
         }

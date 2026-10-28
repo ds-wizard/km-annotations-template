@@ -17,8 +17,15 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Wizard 5.0 tools are not on PyPI yet: engine-tools at a fixed commit
       - name: Install DSW TDK
-        run: pip install dsw-tdk==4.35.0
+        env:
+          ENGINE_TOOLS: git+https://github.com/ds-wizard/engine-tools@2d45273d0ce0cfaf342dbe16bea574a8460cc39e
+        run: |
+          pip install \
+            "dsw-models @ $ENGINE_TOOLS#subdirectory=packages/dsw-models" \
+            "dsw-templating @ $ENGINE_TOOLS#subdirectory=packages/dsw-templating" \
+            "dsw-tdk @ $ENGINE_TOOLS#subdirectory=packages/dsw-tdk"
 
       - name: Verify template
         run: dsw-tdk --no-dot-env --no-config verify .

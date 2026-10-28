@@ -1,6 +1,6 @@
 {#- Check table: one row per chapter, question, answer and choice of the KM with its
-    annotations, where it ends up in the extraction (`extract_replies`, version 1)
-    and the findings about it. Needs `dc` (import with context). -#}
+    annotations, where it ends up in the extraction (`extract_replies` of Wizard 5.0 with
+    {'version': '2'}) and the findings about it. Needs `dc` (import with context). -#}
 {%- import 'src/logic/common.j2' as common -%}
 {%- set rows = [] -%}
 {#- objects of the extraction: scope id -> [{key, branch, row}] -#}
@@ -9,7 +9,7 @@
 {%- for chapter in dc.km.chapters if chapter.annotations.get(common.KEY) is not none -%}
   {%- do stats.update({'keys': stats['keys'] + 1}) -%}
 {%- endfor -%}
-{%- for question in dc.e.questions.values() if question.annotations.get(common.KEY) is not none -%}
+{%- for question in dc.km.e.questions.values() if question.annotations.get(common.KEY) is not none -%}
   {%- do stats.update({'keys': stats['keys'] + 1}) -%}
 {%- endfor -%}
 {#- Without any json.key in the KM, missing keys are not worth a warning -#}
@@ -42,7 +42,7 @@
     {%- do check(row, 'error', 'The json.key is empty, so the value is stored under the key "" (an empty string).') -%}
   {%- elif key.startswith('_') -%}
     {%- if key in common.META_FIELDS.get(state.kind, []) -%}
-      {%- do check(row, 'error', 'The json.key "' ~ key ~ '" overwrites the field of the same name that the extraction adds to this object.') -%}
+      {%- do check(row, 'error', 'The json.key "' ~ key ~ '" clashes with the field of the same name that the extraction adds to this object, so one of them is lost.') -%}
     {%- else -%}
       {%- do check(row, 'warning', 'Keys starting with "_" are used for the fields the extraction adds (_value, _path, ...); a different key avoids confusion.') -%}
     {%- endif -%}
@@ -61,8 +61,8 @@
       {%- endfor -%}
     {%- endfor -%}
     {%- if not ns.exclusive -%}
-      {%- do check(row, 'error', 'The json.key "' ~ key ~ '" is also used by ' ~ entry.row.hi ~ ' (' ~ entry.row.note ~ ') in the same object; the later one overwrites the earlier one.') -%}
-      {%- do check(entry.row, 'error', 'The json.key "' ~ key ~ '" is also used by ' ~ row.hi ~ ' (' ~ row.note ~ ') in the same object; the later one overwrites the earlier one.') -%}
+      {%- do check(row, 'error', 'The json.key "' ~ key ~ '" is also used by ' ~ entry.row.hi ~ ' (' ~ entry.row.note ~ ') in the same object, so one of them is lost.') -%}
+      {%- do check(entry.row, 'error', 'The json.key "' ~ key ~ '" is also used by ' ~ row.hi ~ ' (' ~ row.note ~ ') in the same object, so one of them is lost.') -%}
     {%- endif -%}
   {%- endfor -%}
   {%- do entries.append({'key': key, 'branch': state.branch, 'row': row}) -%}
@@ -164,10 +164,11 @@
     {%- do useKey(row, key, k.count, state) -%}
     {%- set path = (state.path ~ '.' ~ key) if state.path else key -%}
     {%- do row.update({'path': path ~ ('[]' if qk.kind in ['list', 'multi-choice'] else '')}) -%}
+    {#- the follow-ups of all answers are in one object (those of the other answers empty) -#}
     {%- for answer in question.answers -%}
       {%- do traverseAnswer(answer, hi ~ '.' ~ (loop.index - 1)|of_alphabet, depth + 1, true, values, {
-        'scope': question.uuid ~ '.' ~ answer.uuid, 'kind': 'answer', 'path': path,
-        'branch': [], 'reach': true, 'reason': none,
+        'scope': question.uuid, 'kind': 'answer', 'path': path,
+        'branch': [[question.uuid, answer.uuid]], 'reach': true, 'reason': none,
       }) -%}
     {%- endfor -%}
     {%- for choice in question.choices -%}
@@ -181,7 +182,7 @@
     {%- endfor -%}
   {%- elif qk.kind == 'options' -%}
     {%- if question.answers|selectattr('followups')|list -%}
-      {%- do check(row, 'info', 'Without json.key, the question is not in the extraction; the follow-ups of the selected answer are put into the enclosing object.') -%}
+      {%- do check(row, 'info', 'Without json.key, the question is not in the extraction; the follow-ups of its answers are put into the enclosing object.') -%}
     {%- else -%}
       {%- do check(row, MISSING, 'Without json.key, the question is left out of the extraction.') -%}
     {%- endif -%}

@@ -1,5 +1,8 @@
 {%- set dc = ctx|to_context_obj -%}
+{%- import 'src/logic/common.j2' as common -%}
 {%- import 'src/logic/schema.j2' as logic with context -%}
-{%- set title = 'JSON Schema of ' ~ dc.pkg.name -%}
+{%- set km = {} -%}
+{%- do common.source(dc, km) -%}
+{%- set title = 'JSON Schema of ' ~ km.name -%}
 {%- set data = logic.schema -%}
 {%- include 'src/logic/viewer.html.j2' -%}

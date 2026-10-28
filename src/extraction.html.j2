@@ -1,4 +1,7 @@
 {%- set dc = ctx|to_context_obj -%}
-{%- set title = 'Extracted replies of ' ~ dc.doc.name -%}
-{%- set data = dc|extract_replies -%}
+{%- import 'src/logic/common.j2' as common -%}
+{%- set km = {} -%}
+{%- do common.source(dc, km) -%}
+{%- set title = 'Extracted replies of ' ~ (dc.project.name if dc.project else km.name) -%}
+{%- set data = dc|extract_replies(common.EXTRACTION) -%}
 {%- include 'src/logic/viewer.html.j2' -%}

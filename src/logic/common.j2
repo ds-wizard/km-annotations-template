@@ -1,12 +1,14 @@
 {#- Helpers shared by the check table and the JSON schema.
-    They follow `extract_replies` of Wizard 4.x (variant "simple", version 1):
+    They follow `extract_replies` of Wizard 5.0 with {'version': '2'} (variant "simple"):
     annotations `json.key` (chapters, questions) and `json.value` (answers, choices). -#}
+{#- Configuration of extract_replies that the template describes -#}
+{%- set EXTRACTION = {'version': '2'} -%}
 {%- set KEY = 'json.key' -%}
 {%- set VALUE = 'json.value' -%}
 {#- Fields the extraction adds to its objects, per kind of object -#}
 {%- set META_FIELDS = {
   'answer': ['_uuid', '_label', '_value', '_path'],
-  'item': ['_uuid', '_path'],
+  'item': ['_uuid', '_label', '_value', '_path'],
 } -%}
 {#- Methods of dicts: `x.items` in Jinja is the method, not the key -#}
 {%- set DICT_METHODS = ['clear', 'copy', 'fromkeys', 'get', 'items', 'keys', 'pop', 'popitem', 'setdefault', 'update', 'values'] -%}
@@ -43,33 +45,32 @@
     {%- do out.update({'kind': 'unknown', 'detail': ''}) -%}
   {%- endif -%}
 {%- endmacro -%}
-{#- json.value as the extraction converts it (version 1: true/false in any case,
-    then anything int() or float() accepts)
-    out: type (boolean, integer, number, string), value, note (why the result may surprise) -#}
+{#- json.value as the extraction converts it (version 2: exactly true or false, and plain
+    integers without leading zeros; everything else stays text)
+    out: type (boolean, integer, string), value, note (why the result may surprise) -#}
 {%- macro interpretValue(raw, out) -%}
-  {%- set s = raw.strip() -%}
-  {%- set body = s[1:] if s[:1] in ['+', '-'] else s -%}
-  {%- set digits = body.replace('_', '') -%}
-  {%- set underscoresOk = not body.startswith('_') and not body.endswith('_') and '__' not in body -%}
-  {%- if raw.lower() in ['true', 'false'] -%}
-    {%- do out.update({'type': 'boolean', 'value': raw.lower() == 'true', 'note': none}) -%}
-    {%- if raw not in ['true', 'false'] -%}
-      {%- do out.update({'note': '"' ~ raw ~ '" becomes the boolean ' ~ raw.lower() ~ '.'}) -%}
-    {%- endif -%}
-  {%- elif digits and digits.isdecimal() and underscoresOk -%}
-    {%- set number = raw|int -%}
-    {%- do out.update({'type': 'integer', 'value': number, 'note': none}) -%}
-    {%- if s != raw or s[:1] == '+' or '_' in s or (body|length > 1 and body.startswith('0')) -%}
-      {%- do out.update({'note': '"' ~ raw ~ '" becomes the number ' ~ number ~ '; to keep it as text, use a value that is not a number.'}) -%}
-    {%- endif -%}
-  {%- elif raw|float(none) is not none -%}
-    {%- set number = raw|float -%}
-    {%- do out.update({'type': 'number', 'value': number, 'note': none}) -%}
-    {%- set low = s.lower() -%}
-    {%- if s != raw or s[:1] == '+' or '_' in s or 'e' in low or 'n' in low -%}
-      {%- do out.update({'note': '"' ~ raw ~ '" becomes the number ' ~ number ~ '; to keep it as text, use a value that is not a number.'}) -%}
-    {%- endif -%}
+  {%- set digits = raw[1:] if raw.startswith('-') else raw -%}
+  {%- if raw in ['true', 'false'] -%}
+    {%- do out.update({'type': 'boolean', 'value': raw == 'true', 'note': none}) -%}
+  {%- elif digits and digits.isascii() and digits.isdigit() and (digits == '0' or not digits.startswith('0')) -%}
+    {%- do out.update({'type': 'integer', 'value': raw|int, 'note': none}) -%}
   {%- else -%}
     {%- do out.update({'type': 'string', 'value': raw, 'note': none}) -%}
+    {%- if raw.strip().lower() in ['true', 'false'] -%}
+      {%- do out.update({'note': '"' ~ raw ~ '" stays text; only true and false (lowercase, without spaces) become booleans.'}) -%}
+    {%- elif raw|float(none) is not none and raw.lower().strip('+-. ') not in ['nan', 'inf', 'infinity'] -%}
+      {%- do out.update({'note': '"' ~ raw ~ '" stays text; only plain integers such as 12 or -3 (no leading zeros, decimals or spaces) become numbers.'}) -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro -%}
+{#- Name and id of the knowledge model, also in the preview of a knowledge model editor
+    out: name, id -#}
+{%- macro source(dc, out) -%}
+  {%- if dc.km_editor -%}
+    {%- do out.update({'name': dc.km_editor.name, 'id': dc.km_editor.id ~ ':' ~ dc.km_editor.version ~ ' (editor)'}) -%}
+  {%- elif dc.km_package -%}
+    {%- do out.update({'name': dc.km_package.name, 'id': dc.km_package.id ~ ':' ~ dc.km_package.version}) -%}
+  {%- else -%}
+    {%- do out.update({'name': 'Knowledge model', 'id': ''}) -%}
   {%- endif -%}
 {%- endmacro -%}

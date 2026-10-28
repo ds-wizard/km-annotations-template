@@ -1,5 +1,8 @@
 {%- set dc = ctx|to_context_obj -%}
+{%- import 'src/logic/common.j2' as common -%}
 {%- import 'src/logic/table.j2' as table with context -%}
+{%- set km = {} -%}
+{%- do common.source(dc, km) -%}
 {%- set summary = table.summary -%}
 {#- =========================================================================== -#}
 <!DOCTYPE html>
@@ -7,7 +10,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Annotations of {{ dc.pkg.name }}</title>
+    <title>Annotations of {{ km.name }}</title>
 
 <style>
   body {
@@ -181,8 +184,8 @@
 </style>
   </head>
   <body>
-    <h1>Annotations of {{ dc.pkg.name }}</h1>
-    <div class="meta"><code>{{ dc.pkg.id }}</code> &middot; {{ summary.rows }} entities &middot; checked for <code>extract_replies</code> of Wizard 4.x (version 1)</div>
+    <h1>Annotations of {{ km.name }}</h1>
+    <div class="meta">{% if km.id %}<code>{{ km.id }}</code> &middot; {% endif %}{{ summary.rows }} entities &middot; checked for <code>extract_replies</code> of Wizard 5.0 with <code>{'version': '2'}</code></div>
 
     <div class="summary">
       <span><strong>{{ summary.key_count }}</strong> json.key</span>
@@ -199,8 +202,9 @@
       <summary>How the extraction uses the annotations</summary>
       <ul>
         <li><code>json.key</code> on a chapter or a question is the key under which it appears in the extracted data; chapters and questions without it are left out (the questions of a chapter without a key are put directly into the top-level object).</li>
-        <li><code>json.value</code> on an answer or a choice is its <code>_value</code>; <code>true</code>/<code>false</code> become booleans and numbers become numbers.</li>
-        <li>The follow-ups of the selected answer are in the object of the options question; for an options question without a key, they are put into the enclosing object.</li>
+        <li><code>json.value</code> on an answer or a choice is its <code>_value</code>; <code>true</code> and <code>false</code> become booleans and plain integers (<code>12</code>, <code>-3</code>) numbers, anything else stays text.</li>
+        <li>The follow-ups of all answers are in the object of the options question (those of the answers not selected empty); for an options question without a key, they are put into the enclosing object.</li>
+        <li>Every annotated question is present: an unanswered one has <code>_value</code> <code>null</code>, an unanswered list or multi-choice question is <code>[]</code>.</li>
         <li>List and multi-choice questions are lists (<code>[]</code> in the extraction path); the item questions of a list question without a key are lost.</li>
         <li>Errors lose or overwrite data, warnings are likely mistakes, notes are worth knowing.</li>
       </ul>
