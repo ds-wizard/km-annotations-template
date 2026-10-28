@@ -2,9 +2,32 @@ name: Build
 
 on:
   push:
+  pull_request:
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install DSW TDK
+        run: pip install dsw-tdk==4.35.0
+
+      - name: Verify template
+        run: dsw-tdk --no-dot-env --no-config verify .
+
+      - name: Create package
+        run: dsw-tdk --no-dot-env --no-config package . -o template.zip
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: template
+          path: template.zip

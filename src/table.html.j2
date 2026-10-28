@@ -1,76 +1,116 @@
 {%- set dc = ctx|to_context_obj -%}
 {%- import 'src/logic/table.j2' as table with context -%}
+{%- set summary = table.summary -%}
 {#- =========================================================================== -#}
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KM Annotations Checking Table</title>
+    <title>Annotations of {{ dc.pkg.name }}</title>
 
 <style>
   body {
     font-family: Arial, sans-serif;
     background: #f5f7fa;
-    padding: 10px;
+    color: #333;
+    margin: 0;
+    padding: 16px;
+  }
+  h1 {
+    font-size: 1.5em;
+    margin: 0 0 4px;
+  }
+  .meta {
+    color: #666;
+    margin-bottom: 16px;
+  }
+  .summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .summary span {
+    background: white;
+    border-radius: 6px;
+    padding: 6px 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .summary strong {
+    font-size: 1.2em;
+  }
+  .notice {
+    background: #fff4e5;
+    border-left: 4px solid #e67e22;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+  .filters {
+    margin-bottom: 12px;
+  }
+  .filters label {
+    margin-right: 16px;
+    cursor: pointer;
+  }
+  details {
+    margin-bottom: 12px;
+  }
+  details ul {
+    margin: 6px 0;
   }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    display: block;
+  .table-wrapper {
     overflow-x: auto;
   }
-
-  thead {
+  table {
+    width: 100%;
+    min-width: 1100px;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  thead th {
     background: #4a90e2;
     color: white;
-  }
-
-  th, td {
-    padding: 12px 16px;
-    text-align: left;
-  }
-
-  th {
     font-weight: 600;
     letter-spacing: 0.5px;
   }
-
+  th, td {
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
   tbody tr {
     border-bottom: 1px solid #eee;
-    transition: background 0.2s ease;
   }
-
   tbody tr:hover {
-    background: #cecece;
+    background: #eef3fa;
   }
-
-  tbody tr:last-child {
-    border-bottom: none;
+  td.id {
+    white-space: nowrap;
   }
-
-  tbody tr:nth-child(even) {
-    background: #f9fafb;
+  td.title .uuid {
+    display: block;
+    color: #999;
+    font-size: 0.8em;
+    font-family: monospace;
   }
-
-  tbody tr:nth-child(even):hover {
-    background: #cecece;
+  td.path code {
+    overflow-wrap: anywhere;
   }
-
-  td {
-    color: #333;
+  code {
+    background: #f0f2f5;
+    border-radius: 3px;
+    padding: 1px 4px;
   }
-  td.mv {
-    min-width: 320px;
+  .value-type {
+    color: #888;
+    font-size: 0.85em;
   }
   span.type {
     display: inline-block;
-    padding: 4px 8px;
+    padding: 3px 8px;
     border-radius: 4px;
     color: white;
     font-size: 0.85em;
@@ -87,45 +127,134 @@
   span.type-choice {
     background: #9b59b6;
   }
+  .kind {
+    display: block;
+    color: #888;
+    font-size: 0.8em;
+    margin-top: 2px;
+  }
   span.not-set {
     color: #999;
     font-style: italic;
   }
+  ul.checks {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+  }
+  ul.checks li {
+    margin-bottom: 4px;
+  }
+  .level {
+    display: inline-block;
+    min-width: 58px;
+    font-size: 0.75em;
+    font-weight: bold;
+    text-transform: uppercase;
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin-right: 4px;
+    text-align: center;
+  }
+  .level-error {
+    background: #fdecea;
+    color: #c0392b;
+  }
+  .level-warning {
+    background: #fff4e5;
+    color: #b35900;
+  }
+  .level-info {
+    background: #eaf2fb;
+    color: #2c6aa8;
+  }
+  tr.row-error td.id {
+    border-left: 4px solid #c0392b;
+  }
+  tr.row-warning td.id {
+    border-left: 4px solid #f39c12;
+  }
+  body.only-findings tr.row-none,
+  body.hide-info tr.row-info {
+    display: none;
+  }
 </style>
   </head>
   <body>
+    <h1>Annotations of {{ dc.pkg.name }}</h1>
+    <div class="meta"><code>{{ dc.pkg.id }}</code> &middot; {{ summary.rows }} entities &middot; checked for <code>extract_replies</code> of Wizard 4.x (version 1)</div>
+
+    <div class="summary">
+      <span><strong>{{ summary.key_count }}</strong> json.key</span>
+      <span><strong>{{ summary.value_count }}</strong> json.value used</span>
+      <span class="level-error"><strong>{{ summary.error }}</strong> errors</span>
+      <span class="level-warning"><strong>{{ summary.warning }}</strong> warnings</span>
+      <span class="level-info"><strong>{{ summary.info }}</strong> notes</span>
+    </div>
+    {%- if summary.key_count == 0 %}
+    <div class="notice">The knowledge model has no <code>json.key</code> annotations, so <code>extract_replies</code> returns an empty object for its projects.</div>
+    {%- endif %}
+
+    <details>
+      <summary>How the extraction uses the annotations</summary>
+      <ul>
+        <li><code>json.key</code> on a chapter or a question is the key under which it appears in the extracted data; chapters and questions without it are left out (the questions of a chapter without a key are put directly into the top-level object).</li>
+        <li><code>json.value</code> on an answer or a choice is its <code>_value</code>; <code>true</code>/<code>false</code> become booleans and numbers become numbers.</li>
+        <li>The follow-ups of the selected answer are in the object of the options question; for an options question without a key, they are put into the enclosing object.</li>
+        <li>List and multi-choice questions are lists (<code>[]</code> in the extraction path); the item questions of a list question without a key are lost.</li>
+        <li>Errors lose or overwrite data, warnings are likely mistakes, notes are worth knowing.</li>
+      </ul>
+    </details>
+
+    <div class="filters">
+      <label><input type="checkbox" id="only-findings"> Only rows with findings</label>
+      <label><input type="checkbox" id="hide-info"> Hide notes</label>
+    </div>
+
+    <div class="table-wrapper">
     <table>
-
-<thead>
-  <tr>
-    <th>ID</td>
-    <th>UUID</td>
-    <th>Type</td>
-    <th>json.key</td>
-    <th>json.value</td>
-    <th>Note</td>
-    <th>Checks</th>
-  </tr>
-</thead>
-<tbody>
-{%- for row in table.rows -%}
-  <tr>
-    <td>{{ row.hi }}</td>
-    <td class="mv"><code>{{ row.uuid }}</code></td>
-    <td><span class="type type-{{ row.type }}">{{ row.type }}</span></td>
-    <td>{%- if row.json_key %}<code>{{ row.json_key }}</code>{%- else %}<span class="not-set">(not set)</span>{%- endif %}</td>
-    <td>{%- if row.json_value %}<code></code>{{ row.json_value }}</code>{%- else %}<span class="not-set">(not set)</span>{%- endif %}</td>
-    <td class="note">{{ row.note }}</td>
-    <td>
-      {%- for check in row.checks -%}
-        {# show tooltip #}
-        <span title="{{ check.message }}">{% if check.level == 'error' %}<strong>‼️</strong>{% elif check.level == 'warning' %}<strong>⚠️</strong>{% endif %}</span>{% if not loop.last %}, {% endif %}
-      {%- endfor -%}
-    </td>
-  </tr>
-{%- endfor -%}
-</tbody>
-
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Entity</th>
+          <th>Title</th>
+          <th>json.key</th>
+          <th>json.value</th>
+          <th>Extraction path</th>
+          <th>Findings</th>
+        </tr>
+      </thead>
+      <tbody>
+{%- for row in table.rows %}
+        <tr class="row-{{ row.level or 'none' }}">
+          <td class="id" style="padding-left: {{ 12 + row.depth * 12 }}px">{{ row.hi }}</td>
+          <td><span class="type type-{{ row.type }}">{{ row.type }}</span>{% if row.kind %}<span class="kind">{{ row.kind }}</span>{% endif %}</td>
+          <td class="title">{{ row.note }}<span class="uuid">{{ row.uuid }}</span></td>
+          <td>{% if row.json_key is not none %}<code>{{ row.json_key }}</code>{% else %}<span class="not-set">(not set)</span>{% endif %}</td>
+          <td>{% if row.json_value is not none %}<code>{{ row.json_value }}</code>{% if row.value_type %} <span class="value-type">{{ row.value_type }}</span>{% endif %}{% elif row.type in ['answer', 'choice'] %}<span class="not-set">(not set)</span>{% endif %}</td>
+          <td class="path">{% if row.path is not none %}<code>{{ row.path }}</code>{% endif %}</td>
+          <td>
+            {%- if row.checks %}
+            <ul class="checks">
+              {%- for check in row.checks %}
+              <li><span class="level level-{{ check.level }}">{{ 'note' if check.level == 'info' else check.level }}</span>{{ check.message }}</li>
+              {%- endfor %}
+            </ul>
+            {%- endif -%}
+          </td>
+        </tr>
+{%- endfor %}
+      </tbody>
     </table>
+    </div>
+
+<script>
+  [['only-findings', 'only-findings'], ['hide-info', 'hide-info']].forEach(function (item) {
+    var input = document.getElementById(item[0]);
+    input.addEventListener('change', function () {
+      document.body.classList.toggle(item[1], input.checked);
+    });
+  });
+</script>
   </body>
 </html>

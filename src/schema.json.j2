@@ -1,2 +1,3 @@
-{%- from 'src/logic/schema.j2' import schema with context -%}
-{{ schema|tojson(indent=2) }}
+{%- set dc = ctx|to_context_obj -%}
+{%- import 'src/logic/schema.j2' as logic with context -%}
+{{ logic.schema|tojson(indent=2) }}

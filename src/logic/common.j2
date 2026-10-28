@@ -1,0 +1,75 @@
+{#- Helpers shared by the check table and the JSON schema.
+    They follow `extract_replies` of Wizard 4.x (variant "simple", version 1):
+    annotations `json.key` (chapters, questions) and `json.value` (answers, choices). -#}
+{%- set KEY = 'json.key' -%}
+{%- set VALUE = 'json.value' -%}
+{#- Fields the extraction adds to its objects, per kind of object -#}
+{%- set META_FIELDS = {
+  'answer': ['_uuid', '_label', '_value', '_path'],
+  'item': ['_uuid', '_path'],
+} -%}
+{#- Methods of dicts: `x.items` in Jinja is the method, not the key -#}
+{%- set DICT_METHODS = ['clear', 'copy', 'fromkeys', 'get', 'items', 'keys', 'pop', 'popitem', 'setdefault', 'update', 'values'] -%}
+{#- =========================================================================== -#}
+{#- Annotation of an entity as the extraction reads it (the first one of a key)
+    out: value (none if missing), count (number of annotations with the key) -#}
+{%- macro readAnnotation(entity, name, out) -%}
+  {%- set v = entity.annotations.get(name) -%}
+  {%- if v is none -%}
+    {%- do out.update({'value': none, 'count': 0}) -%}
+  {%- elif v is string -%}
+    {%- do out.update({'value': v, 'count': 1}) -%}
+  {%- else -%}
+    {%- do out.update({'value': v[0], 'count': v|length}) -%}
+  {%- endif -%}
+{%- endmacro -%}
+{#- Kind of a question as a short name -#}
+{%- macro questionKind(question, out) -%}
+  {%- if question is of_type('ValueQuestion') -%}
+    {%- do out.update({'kind': 'value', 'detail': question.value_type|replace('QuestionValueType', '')|lower}) -%}
+  {%- elif question is of_type('OptionsQuestion') -%}
+    {%- do out.update({'kind': 'options', 'detail': ''}) -%}
+  {%- elif question is of_type('MultiChoiceQuestion') -%}
+    {%- do out.update({'kind': 'multi-choice', 'detail': ''}) -%}
+  {%- elif question is of_type('ListQuestion') -%}
+    {%- do out.update({'kind': 'list', 'detail': ''}) -%}
+  {%- elif question is of_type('IntegrationQuestion') -%}
+    {%- do out.update({'kind': 'integration', 'detail': ''}) -%}
+  {%- elif question is of_type('ItemSelectQuestion') -%}
+    {%- do out.update({'kind': 'item-select', 'detail': ''}) -%}
+  {%- elif question is of_type('FileQuestion') -%}
+    {%- do out.update({'kind': 'file', 'detail': ''}) -%}
+  {%- else -%}
+    {%- do out.update({'kind': 'unknown', 'detail': ''}) -%}
+  {%- endif -%}
+{%- endmacro -%}
+{#- json.value as the extraction converts it (version 1: true/false in any case,
+    then anything int() or float() accepts)
+    out: type (boolean, integer, number, string), value, note (why the result may surprise) -#}
+{%- macro interpretValue(raw, out) -%}
+  {%- set s = raw.strip() -%}
+  {%- set body = s[1:] if s[:1] in ['+', '-'] else s -%}
+  {%- set digits = body.replace('_', '') -%}
+  {%- set underscoresOk = not body.startswith('_') and not body.endswith('_') and '__' not in body -%}
+  {%- if raw.lower() in ['true', 'false'] -%}
+    {%- do out.update({'type': 'boolean', 'value': raw.lower() == 'true', 'note': none}) -%}
+    {%- if raw not in ['true', 'false'] -%}
+      {%- do out.update({'note': '"' ~ raw ~ '" becomes the boolean ' ~ raw.lower() ~ '.'}) -%}
+    {%- endif -%}
+  {%- elif digits and digits.isdecimal() and underscoresOk -%}
+    {%- set number = raw|int -%}
+    {%- do out.update({'type': 'integer', 'value': number, 'note': none}) -%}
+    {%- if s != raw or s[:1] == '+' or '_' in s or (body|length > 1 and body.startswith('0')) -%}
+      {%- do out.update({'note': '"' ~ raw ~ '" becomes the number ' ~ number ~ '; to keep it as text, use a value that is not a number.'}) -%}
+    {%- endif -%}
+  {%- elif raw|float(none) is not none -%}
+    {%- set number = raw|float -%}
+    {%- do out.update({'type': 'number', 'value': number, 'note': none}) -%}
+    {%- set low = s.lower() -%}
+    {%- if s != raw or s[:1] == '+' or '_' in s or 'e' in low or 'n' in low -%}
+      {%- do out.update({'note': '"' ~ raw ~ '" becomes the number ' ~ number ~ '; to keep it as text, use a value that is not a number.'}) -%}
+    {%- endif -%}
+  {%- else -%}
+    {%- do out.update({'type': 'string', 'value': raw, 'note': none}) -%}
+  {%- endif -%}
+{%- endmacro -%}

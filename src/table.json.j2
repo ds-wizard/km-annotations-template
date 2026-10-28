@@ -1,70 +1,58 @@
 {%- set dc = ctx|to_context_obj -%}
 {%- import 'src/logic/table.j2' as table with context -%}
+{%- set HEADERS = [
+  ['ID', 14], ['Level', 9], ['UUID', 38], ['Entity', 10], ['Question type', 18], ['Title', 50],
+  ['JSON key', 22], ['JSON value', 18], ['Value type', 11], ['Extraction path', 45], ['Findings', 100],
+] -%}
 {%- set grid = [] -%}
 {%- for row in table.rows -%}
-    {%- do grid.append([
-        row.hi,
-        row.uuid,
-        row.type,
-        row.json_key,
-        row.json_value,
-        row.note,
-    ]) -%}
+  {%- set cells = [
+    row.hi, row.level, row.uuid, row.type, row.kind, row.note, row.json_key, row.json_value,
+    row.value_type, row.path, row.checks|map(attribute='message')|join('\n'),
+  ] -%}
+  {%- do grid.append(cells|map('default', '', true)|list) -%}
 {%- endfor -%}
-{%- set data = {
-    "properties": {
-        "document": {
-            "title": "My example workbook",
-            "subject": "",
-            "author": "Albert Einstein",
-            "manager": "",
-            "company": "ACME",
-            "category": "",
-            "keywords": "test,example,foo,bar",
-            "created": "2018-01-01",
-            "comments": ""
-        },
-        "custom":  [],
+{%- set columns = [] -%}
+{%- set widths = [] -%}
+{%- for header in HEADERS -%}
+  {%- do columns.append({'header': header[0]}) -%}
+  {%- do widths.append({'col': loop.index0, 'width': header[1], 'format': 'wrap'}) -%}
+{%- endfor -%}
+{%- set sheet = {
+  'name': 'Annotations',
+  'data': [],
+  'options': {
+    'columns': widths,
+  },
+} -%}
+{%- if grid -%}
+  {%- do sheet.data.append({'type': 'grid', 'col': 0, 'row': 1, 'data': grid}) -%}
+  {%- do sheet.options.update({'tables': [{
+    'first_row': 0,
+    'first_col': 0,
+    'last_row': grid|length,
+    'last_col': HEADERS|length - 1,
+    'options': {
+      'name': 'annotations',
+      'columns': columns,
+      'banded_rows': true,
+      'style': 'Table Style Light 9',
     },
-    "sheets": [
-        {
-            "name": "main",
-            "data": [
-                {
-                    "type": "row",
-                    "subtype": "string",
-                    "col": 0,
-                    "row": 0,
-                    "data": [
-                        "ID",
-                        "UUID",
-                        "Type",
-                        "JSON Key",
-                        "JSON Value",
-                        "Note",
-                    ]
-                },
-                {
-                    "type": "grid",
-                    "col": 0,
-                    "row": 1,
-                    "data": grid
-                }
-            ],
-            "tables": [
-                {
-                    "first_row": 0,
-                    "first_col": 0,
-                    "last_row": grid|length,
-                    "last_col": 5,
-                    "options": {
-                        "header_row": True,
-                        "banded_rows": True,
-                        "name": "annotations",
-                    },
-                },
-            ],
-        },
-    ]
+  }]}) -%}
+{%- else -%}
+  {%- do sheet.data.append({'type': 'row', 'col': 0, 'row': 0, 'data': HEADERS|map('first')|list}) -%}
+{%- endif -%}
+{%- set data = {
+  'properties': {
+    'document': {
+      'title': 'Annotations of ' ~ dc.pkg.name,
+      'subject': dc.pkg.id,
+      'comments': 'Annotations json.key / json.value as extract_replies of Wizard 4.x uses them',
+    },
+  },
+  'formats': {
+    'wrap': {'text_wrap': true, 'valign': 'top'},
+  },
+  'sheets': [sheet],
 } -%}
 {{ data|tojson(2) }}

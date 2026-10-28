@@ -1,0 +1,30 @@
+{#- Interactive viewer of JSON data (variables: title, data) -#}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/williamtroup/JsonTree.js@4.7.1/dist/jsontree.js.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.jsdelivr.net/gh/williamtroup/JsonTree.js@4.7.1/dist/jsontree.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+const viewedData = {{ data|tojson }};
+
+function bindingOptions() {
+    return {
+      data: viewedData,
+      title: {
+        text: {{ title|tojson }},
+      },
+      openInFullScreenMode: true,
+    }
+}
+</script>
+
+  </head>
+  <body>
+    <div id="tree-1" data-jsontree-js="bindingOptions"></div>
+    <noscript><pre>{{ data|tojson(indent=2) }}</pre></noscript>
+  </body>
+</html>

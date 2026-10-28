@@ -1,9 +1,9 @@
 {
     "templateId": "km-annotations",
     "organizationId": "dsw",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "name": "KM Annotations",
-    "description": "Document template for using KM annotations for replies extraction",
+    "description": "Check of the json.key / json.value annotations of a knowledge model, JSON Schema of the replies extract_replies returns, and the extracted replies of a project",
     "license": "Apache-2.0",
     "metamodelVersion": "18.0",
     "allowedPackages": [
@@ -126,7 +126,7 @@
         }
     ],
     "_tdk": {
-        "version": "4.27.0",
+        "version": "4.35.0",
         "readmeFile": "README.md",
         "files": [
             "/src/**/*.j2",

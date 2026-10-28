@@ -1,6 +1,11 @@
 {%- set dc = ctx|to_context_obj -%}
 {%- import 'src/logic/table.j2' as table with context -%}
-"ID","UUID","Type","JSON Key","JSON Value","Note"
+{%- autoescape false -%}
+{%- macro cell(value) -%}
+  "{{ (value if value is not none else '')|string|replace('"', '""') }}"
+{%- endmacro -%}
+"ID","Level","UUID","Entity","Question type","Title","JSON key","JSON value","Value type","Extraction path","Findings"
 {%- for row in table.rows %}
-"{{ row.hi }}","{{ row.uuid }}","{{ row.type }}","{{ row.json_key }}","{{ row.json_value }}","{{ row.note|replace('"', '') }}"
+{{ cell(row.hi) }},{{ cell(row.level) }},{{ cell(row.uuid) }},{{ cell(row.type) }},{{ cell(row.kind) }},{{ cell(row.note) }},{{ cell(row.json_key) }},{{ cell(row.json_value) }},{{ cell(row.value_type) }},{{ cell(row.path) }},{{ cell(row.checks|map(attribute='message')|join(' | ')) }}
 {%- endfor %}
+{%- endautoescape %}

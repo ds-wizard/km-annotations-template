@@ -1,116 +1,175 @@
-{#- Schema for integration reply: add fields -#}
-{%- set integrationReplySchema = {
-  "type": "object",
-  "properties": {
-    "_value": { "type": "string" },
-    "_path": { "type": "string" },
-    "_raw": {},
-  },
-  "required": ["_value", "_path"],
-} -%}
-{#- Schema for Answer/Choice reply: update _value (None / T/F), add fields -#}
-{%- set answerChoiceReplySchema = {
-  "type": "object",
-  "properties": {
-    "_uuid": { "type": "string" },
-    "_label": { "type": "string" },
-    "_value": { "type": "string" },
-    "_path": { "type": "string" },
-  },
-  "required": ["_value", "_path", "_uuid", "_label"],
-} -%}
-{#- Schema for List reply: add fields -#}
-{%- set listReplySchema = {
-  "type": "object",
-  "properties": {
-    "_uuid": { "type": "string" },
-    "_path": { "type": "string" },
-  },
-  "required": ["_value", "_path", "_uuid", "_label"],
-} -%}
-{#- Schema for Value reply -#}
-{%- set valueReplySchema = {
-  "type": "object",
-  "properties": {
-    "_value": { "type": "string" },
-    "_path": { "type": "string" },
-  },
-  "required": ["_value", "_path"],
-} -%}
-{#- Schema for File reply -#}
-{%- set fileReplySchema = {
-  "type": "object",
-  "properties": {
-    "_uuid": { "type": "string" },
-    "_name": { "type": "string" },
-    "_size": { "type": "number" },
-    "_content_type": { "type": "string" },
-    "_url": { "type": "string" },
-    "_path": { "type": "string" },
-  },
-  "required": ["_uuid", "_path"],
-} -%}
-{#- Main schema for all replies -#}
-{%- set objects = { 'root': {}, } -%}
-{%- set schema = {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Product",
-  "description": "A product in the catalog",
-  "type": "object",
-  "properties": objects['root'],
-} -%}
-{#- TRAVERSE -#}
-{%- macro traverseValueQuestion(key, question, path) -%}
+{#- JSON Schema of what `extract_replies` (Wizard 4.x: variant "simple", version 1)
+    returns for projects of the KM. Needs `dc` (import with context). -#}
+{%- import 'src/logic/common.j2' as common -%}
+{%- set STRING = {'type': 'string'} -%}
+{%- set FORMATS = {'email': 'email', 'url': 'uri', 'date': 'date', 'datetime': 'date-time'} -%}
+{#- =========================================================================== -#}
+{#- An object of the extraction: properties, required (keys always present) -#}
+{%- macro newObject(out) -%}
+  {%- do out.update({'properties': {}, 'required': []}) -%}
 {%- endmacro -%}
-{%- macro traverseIntegrationQuestion(key, question, path) -%}
+{%- macro objectSchema(description, fields, obj, extra={}) -%}
+  {#- a json.key equal to a field overwrites it (it is written later) -#}
+  {%- set properties = {} -%}
+  {%- do properties.update(fields) -%}
+  {%- do properties.update(obj.properties) -%}
+  {%- set result = {
+    'type': 'object',
+    'properties': properties,
+    'required': (fields.keys()|list) + (obj.required|reject('in', fields)|list),
+    'additionalProperties': false,
+  } -%}
+  {%- if description -%}
+    {%- do result.update({'description': description}) -%}
+  {%- endif -%}
+  {%- do result.update(extra) -%}
+  {%- do obj.update({'schema': result}) -%}
 {%- endmacro -%}
-{%- macro traverseOptionsQuestion(key, question, path) -%}
-{%- endmacro -%}
-{%- macro traverseMultiChoiceQuestion(key, question, path) -%}
-{%- endmacro -%}
-{%- macro traverseListQuestion(key, question, path) -%}
-{%- endmacro -%}
-{%- macro traverseItemSelectQuestion(key, question, path) -%}
-{%- endmacro -%}
-{%- macro traverseFileQuestion(key, question, path) -%}
-{%- endmacro -%}
-{%- macro traverseQuestion(key, question, path) -%}
-  {%- set new_path = path ~ '.' ~ question.uuid -%}
-  {%- if question is of_type('ValueQuestion') -%}
-    {%- do traverseValueQuestion(key, question, new_path) -%}
-  {%- elif question is of_type('IntegrationQuestion') -%}
-    {%- do traverseIntegrationQuestion(key, question, new_path) -%}
-  {%- elif question is of_type('OptionsQuestion') -%}
-    {%- do traverseOptionsQuestion(key, question, new_path) -%}
-  {%- elif question is of_type('MultiChoiceQuestion') -%}
-    {%- do traverseMultiChoiceQuestion(key, question, new_path) -%}
-  {%- elif question is of_type('ListQuestion') -%}
-    {%- do traverseListQuestion(key, question, new_path) -%}
-  {%- elif question is of_type('ItemSelectQuestion') -%}
-    {%- do traverseItemSelectQuestion(key, question, new_path) -%}
-  {%- elif question is of_type('FileQuestion') -%}
-    {%- do traverseFileQuestion(key, question, new_path) -%}
+{#- Put the schema of a key into an object; conditional keys (follow-ups of an answer of an
+    options question without json.key) are not required; a key used twice may hold either -#}
+{%- macro put(obj, key, schema, conditional) -%}
+  {%- if key in obj.properties -%}
+    {%- do obj.properties.update({key: {'anyOf': [obj.properties[key], schema]}}) -%}
+  {%- else -%}
+    {%- do obj.properties.update({key: schema}) -%}
+  {%- endif -%}
+  {%- if not conditional and key not in obj.required -%}
+    {%- do obj.required.append(key) -%}
   {%- endif -%}
 {%- endmacro -%}
-{%- macro traverseChapter(key, chapter) -%}
-  {%- set a_key = chapter.annotations.get('json.key') -%}
-  {%- if a_key -%}
-    {%- do objects.update({chapter.uuid: {}}) -%}
-    {%- for question in chapter.questions -%}
-      {%- do traverseQuestion(chapter.uuid, question, chapter.uuid) -%}
+{%- macro nullable(schema) -%}
+  {%- do schema.update({'type': [schema.type, 'null']}) -%}
+{%- endmacro -%}
+{#- =========================================================================== -#}
+{#- Schema of _value of an answer or a choice: its json.value as the extraction converts it -#}
+{%- macro optionValue(entity, out) -%}
+  {%- set v = {} -%}
+  {%- do common.readAnnotation(entity, common.VALUE, v) -%}
+  {%- if v.value is none -%}
+    {%- do out.update({'const': none}) -%}
+  {%- else -%}
+    {%- set x = {} -%}
+    {%- do common.interpretValue(v.value, x) -%}
+    {%- do out.update({'const': x.value}) -%}
+  {%- endif -%}
+{%- endmacro -%}
+{%- macro traverseQuestion(question, obj, conditional) -%}
+  {%- set k = {} -%}
+  {%- do common.readAnnotation(question, common.KEY, k) -%}
+  {%- set key = k.value -%}
+  {%- set qk = {} -%}
+  {%- do common.questionKind(question, qk) -%}
+  {%- set title = question.title -%}
+  {%- if key is not none -%}
+    {%- if qk.kind == 'value' -%}
+      {%- set value = {'type': 'string'} -%}
+      {%- if qk.detail in FORMATS -%}
+        {%- do value.update({'format': FORMATS[qk.detail]}) -%}
+      {%- endif -%}
+      {%- set o = {} -%}
+      {%- do newObject(o) -%}
+      {%- do objectSchema(title, {'_value': value, '_path': STRING}, o) -%}
+      {%- do nullable(o.schema) -%}
+      {%- do put(obj, key, o.schema, conditional) -%}
+    {%- elif qk.kind == 'integration' -%}
+      {%- set o = {} -%}
+      {%- do newObject(o) -%}
+      {%- do objectSchema(title, {'_value': STRING, '_path': STRING}, o) -%}
+      {%- do o.schema.properties.update({'_raw': {'description': 'Data of the selected integration item (not for a plain-text reply)'}}) -%}
+      {%- do nullable(o.schema) -%}
+      {%- do put(obj, key, o.schema, conditional) -%}
+    {%- elif qk.kind == 'options' -%}
+      {%- set variants = [{'type': 'null'}] -%}
+      {%- for answer in question.answers -%}
+        {%- set value = {} -%}
+        {%- do optionValue(answer, value) -%}
+        {%- set o = {} -%}
+        {%- do newObject(o) -%}
+        {%- for followup in answer.followups -%}
+          {%- do traverseQuestion(followup, o, false) -%}
+        {%- endfor -%}
+        {%- do objectSchema('Answer: ' ~ answer.label, {
+          '_uuid': {'const': answer.uuid},
+          '_label': {'const': answer.label},
+          '_value': value,
+          '_path': STRING,
+        }, o) -%}
+        {%- do variants.append(o.schema) -%}
+      {%- endfor -%}
+      {%- do put(obj, key, {'description': title, 'anyOf': variants}, conditional) -%}
+    {%- elif qk.kind == 'multi-choice' -%}
+      {%- set variants = [] -%}
+      {%- for choice in question.choices -%}
+        {%- set value = {} -%}
+        {%- do optionValue(choice, value) -%}
+        {%- set o = {} -%}
+        {%- do newObject(o) -%}
+        {%- do objectSchema('Choice: ' ~ choice.label, {
+          '_uuid': {'const': choice.uuid},
+          '_label': {'const': choice.label},
+          '_value': value,
+          '_path': STRING,
+        }, o) -%}
+        {%- do variants.append(o.schema) -%}
+      {%- endfor -%}
+      {%- do put(obj, key, {'description': title, 'type': 'array', 'items': {'anyOf': variants}}, conditional) -%}
+    {%- elif qk.kind == 'list' -%}
+      {%- set o = {} -%}
+      {%- do newObject(o) -%}
+      {%- for followup in question.followups -%}
+        {%- do traverseQuestion(followup, o, false) -%}
+      {%- endfor -%}
+      {%- do objectSchema(none, {'_uuid': STRING, '_path': STRING}, o) -%}
+      {%- do put(obj, key, {'description': title, 'type': 'array', 'items': o.schema}, conditional) -%}
+    {%- elif qk.kind == 'item-select' -%}
+      {%- set o = {} -%}
+      {%- do newObject(o) -%}
+      {%- do objectSchema(title, {'_uuid': STRING, '_label': {'type': ['string', 'null']}, '_path': STRING}, o) -%}
+      {%- do nullable(o.schema) -%}
+      {%- do put(obj, key, o.schema, conditional) -%}
+    {%- elif qk.kind == 'file' -%}
+      {%- set o = {} -%}
+      {%- do newObject(o) -%}
+      {%- do objectSchema(title, {
+        '_uuid': STRING, '_name': STRING, '_size': {'type': 'integer'},
+        '_content_type': STRING, '_url': STRING, '_path': STRING,
+      }, o) -%}
+      {%- do nullable(o.schema) -%}
+      {%- do put(obj, key, o.schema, conditional) -%}
+    {%- endif -%}
+  {%- elif qk.kind == 'options' -%}
+    {#- the follow-ups of the selected answer go into the enclosing object -#}
+    {%- for answer in question.answers -%}
+      {%- for followup in answer.followups -%}
+        {%- do traverseQuestion(followup, obj, true) -%}
+      {%- endfor -%}
     {%- endfor -%}
-    {%- do objects[key].update({
-      a_key: {
-        "type": "object",
-        "properties": objects[chapter.uuid],
-      }}) -%}
+  {%- endif -%}
+{%- endmacro -%}
+{%- set root = {} -%}
+{%- do newObject(root) -%}
+{%- for chapter in dc.km.chapters -%}
+  {%- set k = {} -%}
+  {%- do common.readAnnotation(chapter, common.KEY, k) -%}
+  {%- if k.value is not none -%}
+    {%- set o = {} -%}
+    {%- do newObject(o) -%}
+    {%- for question in chapter.questions -%}
+      {%- do traverseQuestion(question, o, false) -%}
+    {%- endfor -%}
+    {%- do objectSchema(chapter.title, {}, o) -%}
+    {%- do put(root, k.value, o.schema, false) -%}
   {%- else -%}
     {%- for question in chapter.questions -%}
-      {%- do traverseQuestion(key, question, chapter.uuid) -%}
+      {%- do traverseQuestion(question, root, false) -%}
     {%- endfor -%}
   {%- endif -%}
-{%- endmacro -%}
-{%- for chapter in dc.km.chapters -%}
-  {%- do traverseChapter('root', chapter) -%}
 {%- endfor -%}
-
+{%- do objectSchema(
+  'Replies of a project of ' ~ dc.pkg.name ~ ' (' ~ dc.pkg.id ~ ') as extract_replies returns them (variant simple, version 1), keyed by the json.key annotations.',
+  {}, root, {
+    '$schema': 'https://json-schema.org/draft/2020-12/schema',
+    'title': 'Replies of ' ~ dc.pkg.name,
+  },
+) -%}
+{%- set schema = root.schema -%}

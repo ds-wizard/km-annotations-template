@@ -1,129 +1,247 @@
+{#- Check table: one row per chapter, question, answer and choice of the KM with its
+    annotations, where it ends up in the extraction (`extract_replies`, version 1)
+    and the findings about it. Needs `dc` (import with context). -#}
+{%- import 'src/logic/common.j2' as common -%}
 {%- set rows = [] -%}
+{#- objects of the extraction: scope id -> [{key, branch, row}] -#}
+{%- set scopes = {} -%}
+{%- set stats = {'keys': 0, 'values': 0} -%}
+{%- for chapter in dc.km.chapters if chapter.annotations.get(common.KEY) is not none -%}
+  {%- do stats.update({'keys': stats['keys'] + 1}) -%}
+{%- endfor -%}
+{%- for question in dc.e.questions.values() if question.annotations.get(common.KEY) is not none -%}
+  {%- do stats.update({'keys': stats['keys'] + 1}) -%}
+{%- endfor -%}
+{#- Without any json.key in the KM, missing keys are not worth a warning -#}
+{%- set MISSING = 'warning' if stats['keys'] > 0 else 'info' -%}
 {#- =========================================================================== -#}
-{%- macro traverseChoice(choice, humanIdentifier) -%}
-  {%- set checks = [] -%}
-  {%- if choice.annotations.get('json.key') -%}
-    {%- do checks.append({
-      'level': 'error',
-      'message': 'Choice has json.key annotation, which is unusual. Please verify if this.',
-    }) -%}
-  {%- endif -%}
-  {%- if not choice.annotations.get('json.value') -%}
-    {%- do checks.append({
-      'level': 'warning',
-      'message': 'Choice does not have json.value annotation (so only label will be usable).',
-    }) -%}
-  {%- endif -%}
-  {%- do rows.append({
-    'hi': humanIdentifier,
-    'uuid': choice.uuid,
-    'type': 'choice',
-    'json_key': choice.annotations.get('json.key'),
-    'json_value': choice.annotations.get('json.value'),
-    'note': choice.label,
-    'checks': checks,
-  }) -%}
+{%- macro check(row, level, message) -%}
+  {%- do row.checks.append({'level': level, 'message': message}) -%}
 {%- endmacro -%}
-{%- macro traverseAnswer(answer, humanIdentifier) -%}
-  {%- set checks = [] -%}
-  {%- if answer.annotations.get('json.key') -%}
-    {%- do checks.append({
-      'level': 'error',
-      'message': 'Answer has json.key annotation, which is unusual. Please verify if this.',
-    }) -%}
-  {%- endif -%}
-  {%- if not answer.annotations.get('json.value') -%}
-    {%- do checks.append({
-      'level': 'warning',
-      'message': 'Answer does not have json.value annotation (so only label will be usable).',
-    }) -%}
-  {%- endif -%}
-  {%- if answer.label|lower == 'yes' and answer.annotations.get('json.value') != 'true' -%}
-    {%- do checks.append({
-      'level': 'warning',
-      'message': 'Answer label is "Yes" but json.value is not true, which can be confusing. Please verify if this is intentional.',
-    }) -%}
-  {%- endif -%}
-  {%- if answer.label|lower == 'no' and answer.annotations.get('json.value') != 'false' -%}
-    {%- do checks.append({
-      'level': 'warning',
-      'message': 'Answer label is "No" but json.value is not false, which can be confusing. Please verify if this is intentional.',
-    }) -%}
-  {%- endif -%}
-  {%- do rows.append({
-    'hi': humanIdentifier,
-    'uuid': answer.uuid,
-    'type': 'answer',
-    'json_key': answer.annotations.get('json.key'),
-    'json_value': answer.annotations.get('json.value'),
-    'note': answer.label,
-    'checks': checks,
-  }) -%}
-  {%- for question in answer.followups -%}
-    {%- do traverseQuestion(question, humanIdentifier ~ '.' ~ loop.index) -%}
-  {%- endfor -%}
-{%- endmacro -%}
-{%- macro traverseQuestion(question, humanIdentifier) -%}
-  {%- set checks = [] -%}
-  {%- if question.annotations.get('json.value') -%}
-    {%- do checks.append({
-      'level': 'error',
-      'message': 'Question has json.value annotation, which is unusual. Please verify if this.',
-    }) -%}
-  {%- endif -%}
-  {%- if not question.annotations.get('json.key') -%}
-    {%- do checks.append({
-      'level': 'warning',
-      'message': 'Question does not have json.key annotation (so only label will be usable).',
-    }) -%}
-  {%- endif -%}
-  {%- do rows.append({
-    'hi': humanIdentifier,
-    'uuid': question.uuid,
-    'type': 'question',
-    'json_key': question.annotations.get('json.key'),
-    'json_value': question.annotations.get('json.value'),
-    'note': question.title,
-    'checks': checks,
-  }) -%}
-  {%- for answer in question.answers -%}
-    {%- do traverseAnswer(answer, humanIdentifier ~ '.' ~ (loop.index-1)|of_alphabet) -%}
-  {%- endfor -%}
-  {%- for choice in question.choices -%}
-    {%- do traverseChoice(choice, humanIdentifier ~ '.' ~ (loop.index-1)|of_alphabet) -%}
-  {%- endfor -%}
-  {%- for question in question.followups -%}
-    {%- do traverseQuestion(question, humanIdentifier ~ '._.' ~ loop.index) -%}
-  {%- endfor -%}
-{%- endmacro -%}
-{%- macro traverseChapter(chapter, humanIdentifier) -%}
-  {%- set hi = humanIdentifier|roman -%}
-  {%- set checks = [] -%}
-  {%- if chapter.annotations.get('json.value') -%}
-    {%- do checks.append({
-      'level': 'error',
-      'message': 'Chapter has json.value annotation, which is unusual. Please verify if this.',
-    }) -%}
-  {%- endif -%}
-  {%- if not chapter.annotations.get('json.key') -%}
-    {%- do checks.append({
-      'level': 'warning',
-      'message': 'Chapter does not have json.key annotation (so only label will be usable).',
-    }) -%}
-  {%- endif -%}
+{%- macro newRow(hi, depth, entity, type, kind, title, key, value) -%}
   {%- do rows.append({
     'hi': hi,
-    'uuid': chapter.uuid,
-    'type': 'chapter',
-    'json_key': chapter.annotations.get('json.key'),
-    'json_value': chapter.annotations.get('json.value'),
-    'note': chapter.title,
-    'checks': checks,
+    'depth': depth,
+    'uuid': entity.uuid,
+    'type': type,
+    'kind': kind,
+    'note': title,
+    'json_key': key,
+    'json_value': value,
+    'value_type': none,
+    'path': none,
+    'checks': [],
   }) -%}
+{%- endmacro -%}
+{#- Checks of a json.key and its registration in the object it is written to -#}
+{%- macro useKey(row, key, count, state) -%}
+  {%- if count > 1 -%}
+    {%- do check(row, 'error', 'It has ' ~ count ~ ' json.key annotations; only the first one ("' ~ key ~ '") is used.') -%}
+  {%- endif -%}
+  {%- if key == '' -%}
+    {%- do check(row, 'error', 'The json.key is empty, so the value is stored under the key "" (an empty string).') -%}
+  {%- elif key.startswith('_') -%}
+    {%- if key in common.META_FIELDS.get(state.kind, []) -%}
+      {%- do check(row, 'error', 'The json.key "' ~ key ~ '" overwrites the field of the same name that the extraction adds to this object.') -%}
+    {%- else -%}
+      {%- do check(row, 'warning', 'Keys starting with "_" are used for the fields the extraction adds (_value, _path, ...); a different key avoids confusion.') -%}
+    {%- endif -%}
+  {%- elif key in common.DICT_METHODS -%}
+    {%- do check(row, 'warning', 'In Jinja, x.' ~ key ~ ' is the method of the dict, not this value; it has to be read as x[\'' ~ key ~ '\'].') -%}
+  {%- elif not key.isidentifier() -%}
+    {%- do check(row, 'info', 'The key "' ~ key ~ '" is not an identifier, so it has to be read as x[\'' ~ key ~ '\'] in Jinja.') -%}
+  {%- endif -%}
+  {%- set entries = scopes.setdefault(state.scope, []) -%}
+  {%- for entry in entries if entry.key == key -%}
+    {#- follow-ups of different answers of one options question never meet -#}
+    {%- set ns = namespace(exclusive=false) -%}
+    {%- for b1 in state.branch -%}
+      {%- for b2 in entry.branch if b1[0] == b2[0] and b1[1] != b2[1] -%}
+        {%- set ns.exclusive = true -%}
+      {%- endfor -%}
+    {%- endfor -%}
+    {%- if not ns.exclusive -%}
+      {%- do check(row, 'error', 'The json.key "' ~ key ~ '" is also used by ' ~ entry.row.hi ~ ' (' ~ entry.row.note ~ ') in the same object; the later one overwrites the earlier one.') -%}
+      {%- do check(entry.row, 'error', 'The json.key "' ~ key ~ '" is also used by ' ~ row.hi ~ ' (' ~ row.note ~ ') in the same object; the later one overwrites the earlier one.') -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- do entries.append({'key': key, 'branch': state.branch, 'row': row}) -%}
+{%- endmacro -%}
+{#- json.value of an answer or a choice; values = {interpreted value -> row} of its siblings -#}
+{%- macro useValue(row, entity, label, keyed, values) -%}
+  {%- set v = {} -%}
+  {%- do common.readAnnotation(entity, common.VALUE, v) -%}
+  {%- if not keyed -%}
+    {%- if v.value is not none -%}
+      {%- do check(row, 'info', 'The json.value has no effect: the question is not in the extraction.') -%}
+    {%- endif -%}
+  {%- elif v.value is none -%}
+    {%- do check(row, 'warning', 'Without json.value, its _value is null in the extraction (only _label can be used).') -%}
+  {%- else -%}
+    {%- do stats.update({'values': stats['values'] + 1}) -%}
+    {%- if v.count > 1 -%}
+      {%- do check(row, 'error', 'It has ' ~ v.count ~ ' json.value annotations; only the first one ("' ~ v.value ~ '") is used.') -%}
+    {%- endif -%}
+    {%- set x = {} -%}
+    {%- do common.interpretValue(v.value, x) -%}
+    {%- do row.update({'value_type': x.type}) -%}
+    {%- if x.note -%}
+      {%- do check(row, 'warning', x.note) -%}
+    {%- endif -%}
+    {%- set id = x.type ~ ':' ~ x.value -%}
+    {%- if id in values -%}
+      {%- do check(row, 'warning', 'The same json.value as ' ~ values[id].hi ~ ' (' ~ values[id].note ~ '), so the two cannot be told apart by _value.') -%}
+    {%- else -%}
+      {%- do values.update({id: row}) -%}
+    {%- endif -%}
+    {%- if values.get('_yesNo') and label|lower == 'yes' and x.value is not sameas true -%}
+      {%- do check(row, 'warning', 'The answers are "Yes" and "No", but the json.value of "Yes" is not true.') -%}
+    {%- elif values.get('_yesNo') and label|lower == 'no' and x.value is not sameas false -%}
+      {%- do check(row, 'warning', 'The answers are "Yes" and "No", but the json.value of "No" is not false.') -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro -%}
+{#- =========================================================================== -#}
+{#- state: scope (object id), kind (root, chapter, answer, item), path (in the extraction),
+    branch (answers of key-less options questions on the way), reach (in the extraction at all),
+    reason (why not) -#}
+{%- macro traverseChoice(choice, hi, depth, keyed, values) -%}
+  {%- set k = {} -%}
+  {%- do common.readAnnotation(choice, common.KEY, k) -%}
+  {%- set v = {} -%}
+  {%- do common.readAnnotation(choice, common.VALUE, v) -%}
+  {%- do newRow(hi, depth, choice, 'choice', '', choice.label, k.value, v.value) -%}
+  {%- set row = rows|last -%}
+  {%- if k.value is not none -%}
+    {%- do check(row, 'warning', 'The json.key has no effect on a choice (it needs json.value).') -%}
+  {%- endif -%}
+  {%- do useValue(row, choice, choice.label, keyed, values) -%}
+{%- endmacro -%}
+{%- macro traverseAnswer(answer, hi, depth, keyed, values, state) -%}
+  {%- set k = {} -%}
+  {%- do common.readAnnotation(answer, common.KEY, k) -%}
+  {%- set v = {} -%}
+  {%- do common.readAnnotation(answer, common.VALUE, v) -%}
+  {%- do newRow(hi, depth, answer, 'answer', '', answer.label, k.value, v.value) -%}
+  {%- set row = rows|last -%}
+  {%- if k.value is not none -%}
+    {%- do check(row, 'warning', 'The json.key has no effect on an answer (it needs json.value).') -%}
+  {%- endif -%}
+  {%- do useValue(row, answer, answer.label, keyed, values) -%}
+  {%- for question in answer.followups -%}
+    {%- do traverseQuestion(question, hi ~ '.' ~ loop.index, depth + 1, state) -%}
+  {%- endfor -%}
+{%- endmacro -%}
+{%- macro traverseQuestion(question, hi, depth, state) -%}
+  {%- set k = {} -%}
+  {%- do common.readAnnotation(question, common.KEY, k) -%}
+  {%- set v = {} -%}
+  {%- do common.readAnnotation(question, common.VALUE, v) -%}
+  {%- set qk = {} -%}
+  {%- do common.questionKind(question, qk) -%}
+  {%- do newRow(hi, depth, question, 'question', qk.kind ~ (' (' ~ qk.detail ~ ')' if qk.detail else ''), question.title, k.value, v.value) -%}
+  {%- set row = rows|last -%}
+  {%- set key = k.value -%}
+  {%- if v.value is not none -%}
+    {%- do check(row, 'warning', 'The json.value has no effect on a question (it belongs to answers and choices).') -%}
+  {%- endif -%}
+  {#- interpreted json.values of the answers / choices (and whether they are just Yes and No) -#}
+  {%- set values = {'_yesNo': question.answers|map(attribute='label')|map('lower')|sort|list == ['no', 'yes']} -%}
+  {%- if not state.reach -%}
+    {%- if key is not none -%}
+      {%- do check(row, 'error', 'The json.key has no effect: ' ~ state.reason ~ '.') -%}
+    {%- endif -%}
+    {%- for answer in question.answers -%}
+      {%- do traverseAnswer(answer, hi ~ '.' ~ (loop.index - 1)|of_alphabet, depth + 1, false, values, state) -%}
+    {%- endfor -%}
+    {%- for choice in question.choices -%}
+      {%- do traverseChoice(choice, hi ~ '.' ~ (loop.index - 1)|of_alphabet, depth + 1, false, values) -%}
+    {%- endfor -%}
+    {%- for followup in question.followups -%}
+      {%- do traverseQuestion(followup, hi ~ '.*.' ~ loop.index, depth + 1, state) -%}
+    {%- endfor -%}
+  {%- elif key is not none -%}
+    {%- do useKey(row, key, k.count, state) -%}
+    {%- set path = (state.path ~ '.' ~ key) if state.path else key -%}
+    {%- do row.update({'path': path ~ ('[]' if qk.kind in ['list', 'multi-choice'] else '')}) -%}
+    {%- for answer in question.answers -%}
+      {%- do traverseAnswer(answer, hi ~ '.' ~ (loop.index - 1)|of_alphabet, depth + 1, true, values, {
+        'scope': question.uuid ~ '.' ~ answer.uuid, 'kind': 'answer', 'path': path,
+        'branch': [], 'reach': true, 'reason': none,
+      }) -%}
+    {%- endfor -%}
+    {%- for choice in question.choices -%}
+      {%- do traverseChoice(choice, hi ~ '.' ~ (loop.index - 1)|of_alphabet, depth + 1, true, values) -%}
+    {%- endfor -%}
+    {%- for followup in question.followups -%}
+      {%- do traverseQuestion(followup, hi ~ '.*.' ~ loop.index, depth + 1, {
+        'scope': question.uuid, 'kind': 'item', 'path': path ~ '[]',
+        'branch': [], 'reach': true, 'reason': none,
+      }) -%}
+    {%- endfor -%}
+  {%- elif qk.kind == 'options' -%}
+    {%- if question.answers|selectattr('followups')|list -%}
+      {%- do check(row, 'info', 'Without json.key, the question is not in the extraction; the follow-ups of the selected answer are put into the enclosing object.') -%}
+    {%- else -%}
+      {%- do check(row, MISSING, 'Without json.key, the question is left out of the extraction.') -%}
+    {%- endif -%}
+    {%- for answer in question.answers -%}
+      {%- do traverseAnswer(answer, hi ~ '.' ~ (loop.index - 1)|of_alphabet, depth + 1, false, values, {
+        'scope': state.scope, 'kind': state.kind, 'path': state.path,
+        'branch': state.branch + [[question.uuid, answer.uuid]], 'reach': true, 'reason': none,
+      }) -%}
+    {%- endfor -%}
+  {%- elif qk.kind == 'list' -%}
+    {%- do check(row, MISSING, 'Without json.key, the question and all its item questions are left out of the extraction.') -%}
+    {%- for followup in question.followups -%}
+      {%- do traverseQuestion(followup, hi ~ '.*.' ~ loop.index, depth + 1, {
+        'reach': false, 'reason': 'the list question ' ~ hi ~ ' has no json.key',
+      }) -%}
+    {%- endfor -%}
+  {%- else -%}
+    {%- do check(row, MISSING, 'Without json.key, the question is left out of the extraction.') -%}
+    {%- for choice in question.choices -%}
+      {%- do traverseChoice(choice, hi ~ '.' ~ (loop.index - 1)|of_alphabet, depth + 1, false, values) -%}
+    {%- endfor -%}
+  {%- endif -%}
+{%- endmacro -%}
+{%- macro traverseChapter(chapter, index) -%}
+  {%- set hi = index|roman -%}
+  {%- set k = {} -%}
+  {%- do common.readAnnotation(chapter, common.KEY, k) -%}
+  {%- set v = {} -%}
+  {%- do common.readAnnotation(chapter, common.VALUE, v) -%}
+  {%- do newRow(hi, 0, chapter, 'chapter', '', chapter.title, k.value, v.value) -%}
+  {%- set row = rows|last -%}
+  {%- if v.value is not none -%}
+    {%- do check(row, 'warning', 'The json.value has no effect on a chapter.') -%}
+  {%- endif -%}
+  {%- if k.value is not none -%}
+    {%- set root = {'scope': 'root', 'kind': 'root', 'path': '', 'branch': [], 'reach': true, 'reason': none} -%}
+    {%- do useKey(row, k.value, k.count, root) -%}
+    {%- do row.update({'path': k.value}) -%}
+    {%- set state = {'scope': chapter.uuid, 'kind': 'chapter', 'path': k.value, 'branch': [], 'reach': true, 'reason': none} -%}
+  {%- else -%}
+    {%- do check(row, 'info', 'Without json.key, the questions of the chapter are put directly into the top-level object.') -%}
+    {%- set state = {'scope': 'root', 'kind': 'root', 'path': '', 'branch': [], 'reach': true, 'reason': none} -%}
+  {%- endif -%}
   {%- for question in chapter.questions -%}
-    {%- do traverseQuestion(question, hi ~ '.' ~ loop.index) -%}
+    {%- do traverseQuestion(question, hi ~ '.' ~ loop.index, 1, state) -%}
   {%- endfor -%}
 {%- endmacro -%}
 {%- for chapter in dc.km.chapters -%}
   {%- do traverseChapter(chapter, loop.index) -%}
+{%- endfor -%}
+{#- =========================================================================== -#}
+{%- set LEVELS = ['error', 'warning', 'info'] -%}
+{%- set summary = {'error': 0, 'warning': 0, 'info': 0, 'rows': rows|length, 'key_count': stats['keys'], 'value_count': stats['values']} -%}
+{%- for row in rows -%}
+  {%- set ns = namespace(level=none) -%}
+  {%- for level in LEVELS|reverse if row.checks|selectattr('level', 'equalto', level)|list -%}
+    {%- set ns.level = level -%}
+  {%- endfor -%}
+  {%- do row.update({'level': ns.level}) -%}
+  {%- for c in row.checks -%}
+    {%- do summary.update({c.level: summary[c.level] + 1}) -%}
+  {%- endfor -%}
 {%- endfor -%}
